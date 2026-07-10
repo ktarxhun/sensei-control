@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Sensei Control
+Comment=SteelSeries Sensei Ten fare ayarları (DPI, RGB, butonlar)
+Exec=sensei-control
+Icon=input-mouse
+Categories=System;Settings;HardwareSettings;
+Terminal=false

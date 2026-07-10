@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+
+# Bu makineye ozel kisisel eklentiler icin (opsiyonel plugin kancasi,
+# bkz. ui/main_window.py _load_local_extensions) - bilerek izlenmiyor
+local_extensions.py
+sensei_control/local_extensions.py

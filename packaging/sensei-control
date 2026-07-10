@@ -1,0 +1,3 @@
+#!/bin/sh
+# Basit baslatici: bu depoyu klonladigin dizine gore calisir.
+cd "$(dirname "$(readlink -f "$0")")/.." && exec python3 -m sensei_control "$@"
