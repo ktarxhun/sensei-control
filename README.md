@@ -21,9 +21,7 @@ yazılmış.
 
 ## Neden
 
-`rivalcfg` mükemmel bir CLI/kütüphane ama GUI'si yok. Var olan GUI
-alternatifi ([RivalCfgGuiGTK](https://github.com/ChadAPSheridan/RivalCfgGuiGTK))
-sadece pil göstergesi sunuyor, gerçek bir ayar arayüzü yok. Bu proje
+`rivalcfg` mükemmel bir CLI/kütüphane ama GUI'si yok. Bu proje
 `rivalcfg`'yi Python kütüphanesi olarak doğrudan kullanan (subprocess
 değil), gerçek bir ayar deneyimi sunan bir GUI.
 
