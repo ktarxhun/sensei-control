@@ -49,7 +49,6 @@ class MainWindow(QMainWindow):
         bottom_row.addWidget(save_btn)
         bottom_row.addWidget(self.apply_btn)
         layout.addLayout(bottom_row)
-        self.bottom_row = bottom_row
 
         self._rebuild_tabs()
         self._load_local_extensions()
@@ -76,7 +75,15 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(DpiTab(profile), "DPI")
         self.tabs.addTab(LightingTab(profile), "Aydınlatma")
         self.tabs.addTab(ButtonsTab(profile), "Butonlar")
-        self.tabs.addTab(GeneralTab(profile, self.get_mouse), "Genel")
+        general_tab = GeneralTab(profile, self.get_mouse)
+        general_tab.profile_reset.connect(self._on_factory_reset)
+        self.tabs.addTab(general_tab, "Genel")
+
+    def _on_factory_reset(self):
+        self.profiles[self.current_name] = backend.MouseProfile(
+            name=self.current_name)
+        backend.save_profiles(self.profiles)
+        self._rebuild_tabs()
 
     def _on_profile_selected(self, name: str):
         if not name or name == self.current_name:
@@ -105,16 +112,16 @@ class MainWindow(QMainWindow):
         confirm = QMessageBox.question(self, "Emin misin?", f"'{name}' silinsin mi?")
         if confirm != QMessageBox.StandardButton.Yes:
             return
+        self.profile_combo.removeItem(self.profile_combo.findText(name))
         del self.profiles[name]
         backend.save_profiles(self.profiles)
-        self.profile_combo.removeItem(self.profile_combo.currentIndex())
 
     def _save_profiles(self):
         backend.save_profiles(self.profiles)
         QMessageBox.information(self, "Kaydedildi", "Profil diske kaydedildi.")
 
     def _apply_to_device(self):
-        mouse = backend.connect_mouse()
+        mouse = self.get_mouse()
         if mouse is None:
             QMessageBox.warning(self, "Bağlı değil",
                                 "Sensei Ten bulunamadı. Kabloyu kontrol et.")

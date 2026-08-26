@@ -11,6 +11,7 @@ from .. import backend
 
 class GeneralTab(QWidget):
     changed = Signal()
+    profile_reset = Signal()
 
     def __init__(self, profile: backend.MouseProfile,
                  get_mouse: Callable[[], Optional[object]]):
@@ -26,28 +27,26 @@ class GeneralTab(QWidget):
         self.polling_combo.setCurrentText(f"{profile.polling_rate} Hz")
         self.polling_combo.currentTextChanged.connect(self._on_polling_changed)
         form.addRow("Polling Rate:", self.polling_combo)
-        layout.addLayout(form)
 
         status_row = QHBoxLayout()
         self.status_label = QLabel("Bilinmiyor")
         refresh_btn = QPushButton("Bağlantıyı Kontrol Et")
         refresh_btn.clicked.connect(self.refresh_status)
-        status_row.addWidget(QLabel("Bağlantı:"))
         status_row.addWidget(self.status_label)
         status_row.addWidget(refresh_btn)
         status_row.addStretch()
-        layout.addLayout(status_row)
+        form.addRow("Bağlantı:", status_row)
 
         fw_row = QHBoxLayout()
         self.firmware_label = QLabel("—")
         fw_refresh_btn = QPushButton("Firmware Sürümünü Oku")
         fw_refresh_btn.clicked.connect(self.refresh_firmware)
-        fw_row.addWidget(QLabel("Firmware:"))
         fw_row.addWidget(self.firmware_label)
         fw_row.addWidget(fw_refresh_btn)
         fw_row.addStretch()
-        layout.addLayout(fw_row)
+        form.addRow("Firmware:", fw_row)
 
+        layout.addLayout(form)
         layout.addStretch()
 
         reset_btn = QPushButton("Fabrika Ayarlarına Sıfırla")
@@ -57,8 +56,16 @@ class GeneralTab(QWidget):
         self.refresh_status()
 
     def _on_polling_changed(self, text: str):
+        if not text:
+            return
         self.profile.polling_rate = int(text.split()[0])
         self.changed.emit()
+
+    def _get_connected_mouse(self):
+        mouse = self.get_mouse()
+        if mouse is None:
+            QMessageBox.warning(self, "Bağlı değil", "Fare bağlı değil.")
+        return mouse
 
     def refresh_status(self):
         mouse = self.get_mouse()
@@ -70,19 +77,17 @@ class GeneralTab(QWidget):
             self.status_label.setStyleSheet("color: #a3be8c;")
 
     def refresh_firmware(self):
-        mouse = self.get_mouse()
+        mouse = self._get_connected_mouse()
         if mouse is None:
-            QMessageBox.warning(self, "Bağlı değil", "Fare bağlı değil.")
             return
         try:
-            self.firmware_label.setText(mouse.firmware_version)
+            self.firmware_label.setText(str(mouse.firmware_version))
         except Exception as e:
             QMessageBox.warning(self, "Hata", str(e))
 
     def factory_reset(self):
-        mouse = self.get_mouse()
+        mouse = self._get_connected_mouse()
         if mouse is None:
-            QMessageBox.warning(self, "Bağlı değil", "Fare bağlı değil.")
             return
         confirm = QMessageBox.question(
             self, "Emin misin?",
@@ -92,6 +97,8 @@ class GeneralTab(QWidget):
         try:
             mouse.reset_settings()
             mouse.save()
-            QMessageBox.information(self, "Tamam", "Fabrika ayarlarına sıfırlandı.")
         except Exception as e:
             QMessageBox.warning(self, "Hata", str(e))
+            return
+        QMessageBox.information(self, "Tamam", "Fabrika ayarlarına sıfırlandı.")
+        self.profile_reset.emit()

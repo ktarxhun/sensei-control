@@ -13,7 +13,6 @@ EFFECT_LABELS = {
     "breathing": "Nefes Alma",
     "rainbow": "Gökkuşağı",
 }
-EFFECT_KEYS = list(EFFECT_LABELS.keys())
 
 
 class LightingEditor(QGroupBox):
@@ -24,18 +23,19 @@ class LightingEditor(QGroupBox):
         self.config = config
 
         layout = QVBoxLayout(self)
-        form = QFormLayout()
+        self.form = QFormLayout()
 
         self.effect_combo = QComboBox()
-        self.effect_combo.addItems([EFFECT_LABELS[k] for k in EFFECT_KEYS])
-        self.effect_combo.setCurrentText(EFFECT_LABELS[config.effect])
+        for key, label in EFFECT_LABELS.items():
+            self.effect_combo.addItem(label, userData=key)
+        self.effect_combo.setCurrentIndex(self.effect_combo.findData(config.effect))
         self.effect_combo.currentIndexChanged.connect(self._on_effect_changed)
-        form.addRow("Efekt:", self.effect_combo)
+        self.form.addRow("Efekt:", self.effect_combo)
 
         self.color_btn = QPushButton()
         self.color_btn.setFixedHeight(28)
         self.color_btn.clicked.connect(self._pick_color)
-        form.addRow("Renk:", self.color_btn)
+        self.form.addRow("Renk:", self.color_btn)
 
         self.duration_spin = QSpinBox()
         self.duration_spin.setRange(100, 60000)
@@ -43,29 +43,29 @@ class LightingEditor(QGroupBox):
         self.duration_spin.setSuffix(" ms")
         self.duration_spin.setValue(config.duration_ms)
         self.duration_spin.valueChanged.connect(self._on_duration_changed)
-        form.addRow("Süre:", self.duration_spin)
+        self.form.addRow("Süre:", self.duration_spin)
 
-        layout.addLayout(form)
+        layout.addLayout(self.form)
 
         self.stops_list = QListWidget()
         self.stops_list.setMaximumHeight(100)
         layout.addWidget(self.stops_list)
 
-        stop_btns = QHBoxLayout()
+        self.stop_btns = QHBoxLayout()
         add_btn = QPushButton("Durak Ekle")
         add_btn.clicked.connect(self._add_stop)
         del_btn = QPushButton("Seçileni Sil")
         del_btn.clicked.connect(self._remove_selected_stop)
-        stop_btns.addWidget(add_btn)
-        stop_btns.addWidget(del_btn)
-        layout.addLayout(stop_btns)
+        self.stop_btns.addWidget(add_btn)
+        self.stop_btns.addWidget(del_btn)
+        layout.addLayout(self.stop_btns)
 
         self._refresh_color_btn()
         self._refresh_stops()
         self._update_visibility()
 
     def _on_effect_changed(self, index: int):
-        self.config.effect = EFFECT_KEYS[index]
+        self.config.effect = self.effect_combo.currentData()
         self._update_visibility()
         self.changed.emit()
 
@@ -73,12 +73,22 @@ class LightingEditor(QGroupBox):
         self.config.duration_ms = value
         self.changed.emit()
 
+    def _set_stop_widgets_visible(self, visible: bool):
+        self.stops_list.setVisible(visible)
+        for i in range(self.stop_btns.count()):
+            widget = self.stop_btns.itemAt(i).widget()
+            if widget is not None:
+                widget.setVisible(visible)
+
     def _update_visibility(self):
         is_gradient = self.config.effect == "gradient"
         is_solid = self.config.effect == "solid"
-        self.stops_list.setVisible(is_gradient)
-        self.duration_spin.setVisible(self.config.effect != "solid")
-        self.color_btn.setVisible(is_solid or self.config.effect == "breathing")
+        show_color = is_solid or self.config.effect == "breathing"
+        show_duration = self.config.effect != "solid"
+
+        self._set_stop_widgets_visible(is_gradient)
+        self.form.setRowVisible(self.color_btn, show_color)
+        self.form.setRowVisible(self.duration_spin, show_duration)
 
     def _refresh_color_btn(self):
         hexval = self.config.color
@@ -96,9 +106,8 @@ class LightingEditor(QGroupBox):
     def _refresh_stops(self):
         self.stops_list.clear()
         for stop in self.config.stops:
-            item = QListWidgetItem(f"{stop.position}%  —  {stop.color}")
-            item.setData(1000, stop)
-            self.stops_list.addItem(item)
+            self.stops_list.addItem(
+                QListWidgetItem(f"{stop.position}%  —  {stop.color}"))
 
     def _add_stop(self):
         color = QColorDialog.getColor(QColor("#ffffff"), self, "Durak rengi")

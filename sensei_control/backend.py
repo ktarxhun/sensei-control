@@ -20,10 +20,9 @@ PROFILES_PATH = CONFIG_DIR / "profiles.json"
 DPI_MIN, DPI_MAX, DPI_STEP = 50, 18000, 50
 POLLING_RATES = [125, 250, 500, 1000]
 
-BUTTON_NAMES = [
-    "Button1", "Button2", "Button3", "Button4",
-    "Button5", "Button6", "Button7", "Button8",
-]
+MAX_DPI_STAGES = 5
+DEFAULT_DPI_STAGES = [400, 800, 1200, 2400, 3200]
+
 BUTTON_SPECIAL_ACTIONS = ["default", "disabled", "dpi", "scrollup", "scrolldown"]
 MULTIMEDIA_KEYS = [
     "PlayPause", "Next", "Previous", "Mute", "VolumeUp", "VolumeDown",
@@ -45,6 +44,16 @@ BUTTON_LOCATIONS = {
 # Semada/formda gosterim sirasi - mantiksal grup (teker/dpi, sonra
 # sol on->arka, sonra sag on->arka). Numara rozetleri bu siraya gore 1-6.
 BUTTON_ORDER = ["Button3", "Button8", "Button5", "Button4", "Button7", "Button6"]
+
+DEFAULT_BUTTON_MAPPING = {
+    "Button1": "button1", "Button2": "button2", "Button3": "button3",
+    "Button4": "button4", "Button5": "button5", "Button6": "PageDown",
+    "Button7": "PageUp", "Button8": "dpi",
+}
+
+# Sol/sağ tık - yanlışlıkla değiştirilirse tıklama çalışmaz hale gelebilir.
+# Arayüzde hiç gösterilmiyor, sadece dahili olarak sabit değerde tutuluyor.
+LOCKED_BUTTONS = {"Button1", "Button2"}
 
 _QWERTY_LAYOUT_CACHE: Optional[list[str]] = None
 
@@ -80,6 +89,11 @@ class LightingConfig:
     duration_ms: int = 2000
     stops: list[GradientStop] = field(default_factory=list)
 
+    @classmethod
+    def from_dict(cls, d: dict) -> "LightingConfig":
+        return cls(
+            **{**d, "stops": [GradientStop(**s) for s in d.get("stops", [])]})
+
     def to_rivalcfg_value(self) -> str:
         if self.effect == "solid":
             return self.color
@@ -92,7 +106,9 @@ class LightingConfig:
         if self.effect == "rainbow":
             return build_rainbow_gradient(self.duration_ms)
         if self.effect == "gradient":
-            stops = self.stops or [GradientStop(0, self.color)]
+            stops = self.stops if len(self.stops) >= 2 else [
+                GradientStop(0, self.color), GradientStop(100, self.color),
+            ]
             return build_gradient_string(self.duration_ms, stops)
         raise ValueError(f"Bilinmeyen efekt: {self.effect}")
 
@@ -100,7 +116,7 @@ class LightingConfig:
 @dataclass
 class MouseProfile:
     name: str = "Varsayılan"
-    dpi_stages: list[int] = field(default_factory=lambda: [400, 800, 1200, 2400, 3200])
+    dpi_stages: list[int] = field(default_factory=lambda: list(DEFAULT_DPI_STAGES))
     polling_rate: int = 1000
     logo: LightingConfig = field(default_factory=LightingConfig)
     wheel: LightingConfig = field(
@@ -108,23 +124,16 @@ class MouseProfile:
     buttons: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        d = asdict(self)
-        return d
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, d: dict) -> "MouseProfile":
-        logo = LightingConfig(
-            **{**d.get("logo", {}),
-               "stops": [GradientStop(**s) for s in d.get("logo", {}).get("stops", [])]})
-        wheel = LightingConfig(
-            **{**d.get("wheel", {}),
-               "stops": [GradientStop(**s) for s in d.get("wheel", {}).get("stops", [])]})
         return cls(
             name=d.get("name", "Varsayılan"),
-            dpi_stages=d.get("dpi_stages", [400, 800, 1200, 2400, 3200]),
+            dpi_stages=d.get("dpi_stages", DEFAULT_DPI_STAGES),
             polling_rate=d.get("polling_rate", 1000),
-            logo=logo,
-            wheel=wheel,
+            logo=LightingConfig.from_dict(d.get("logo") or {}),
+            wheel=LightingConfig.from_dict(d.get("wheel") or {"color": "#0000ff"}),
             buttons=d.get("buttons", {}),
         )
 
@@ -174,14 +183,18 @@ def load_profiles() -> dict[str, MouseProfile]:
         default = MouseProfile()
         return {default.name: default}
     try:
-        raw = json.loads(PROFILES_PATH.read_text())
-        return {name: MouseProfile.from_dict(d) for name, d in raw.items()}
+        raw = json.loads(PROFILES_PATH.read_text(encoding="utf-8"))
+        profiles = {name: MouseProfile.from_dict(d) for name, d in raw.items()}
+        if profiles:
+            return profiles
     except (json.JSONDecodeError, OSError):
-        default = MouseProfile()
-        return {default.name: default}
+        pass
+    default = MouseProfile()
+    return {default.name: default}
 
 
 def save_profiles(profiles: dict[str, MouseProfile]) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     raw = {name: p.to_dict() for name, p in profiles.items()}
-    PROFILES_PATH.write_text(json.dumps(raw, indent=2, ensure_ascii=False))
+    PROFILES_PATH.write_text(
+        json.dumps(raw, indent=2, ensure_ascii=False), encoding="utf-8")

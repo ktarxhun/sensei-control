@@ -23,23 +23,22 @@ _DIAGRAM_W = 230
 _DIAGRAM_H = 340
 
 
-def make_badge_pixmap(number: int, diameter: int = 20) -> QPixmap:
-    pixmap = QPixmap(diameter, diameter)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setPen(Qt.PenStyle.NoPen)
+def _draw_badge(painter: QPainter, center: QPointF, diameter: float,
+                 number: int, border: QPen = Qt.PenStyle.NoPen) -> None:
+    """Mor arkaplanli daire icine ortalanmis, beyaz rozet numarasi cizer."""
+    painter.setPen(border)
     painter.setBrush(_BADGE_COLOR)
-    painter.drawEllipse(0, 0, diameter, diameter)
-    painter.setPen(Qt.GlobalColor.white)
+    painter.drawEllipse(center, diameter / 2, diameter / 2)
+
     font = QFont()
     font.setBold(True)
-    font.setPointSize(int(diameter * 0.5))
+    font.setPointSize(int(diameter * 0.42))
     painter.setFont(font)
-    painter.drawText(QRectF(0, 0, diameter, diameter),
-                     Qt.AlignmentFlag.AlignCenter, str(number))
-    painter.end()
-    return pixmap
+    painter.setPen(Qt.GlobalColor.white)
+    painter.drawText(
+        QRectF(center.x() - diameter / 2, center.y() - diameter / 2,
+               diameter, diameter),
+        Qt.AlignmentFlag.AlignCenter, str(number))
 
 
 def make_row_label_pixmap(number: int, text: str, height: int = 26) -> QPixmap:
@@ -58,17 +57,7 @@ def make_row_label_pixmap(number: int, text: str, height: int = 26) -> QPixmap:
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
     cy = height / 2
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(_BADGE_COLOR)
-    painter.drawEllipse(QPointF(badge_d / 2 + 2, cy), badge_d / 2, badge_d / 2)
-
-    badge_font = QFont()
-    badge_font.setBold(True)
-    badge_font.setPointSize(int(badge_d * 0.42))
-    painter.setFont(badge_font)
-    painter.setPen(Qt.GlobalColor.white)
-    painter.drawText(QRectF(2, cy - badge_d / 2, badge_d, badge_d),
-                     Qt.AlignmentFlag.AlignCenter, str(number))
+    _draw_badge(painter, QPointF(badge_d / 2 + 2, cy), badge_d, number)
 
     painter.setFont(font)
     painter.setPen(QColor(220, 220, 220))
@@ -85,34 +74,38 @@ class ButtonDiagram(QWidget):
         super().__init__()
         self.setFixedSize(_DIAGRAM_W, _DIAGRAM_H)
 
-    def _body_geometry(self):
+    def _body_rect(self) -> QRectF:
         cx = _DIAGRAM_W / 2
         body_w, body_h = 145, 280
         top = 26
-        bottom = top + body_h
-        left = cx - body_w / 2
-        right = cx + body_w / 2
-        return cx, top, bottom, left, right, body_w, body_h
+        return QRectF(cx - body_w / 2, top, body_w, body_h)
 
-    def _marker_positions(self) -> dict[str, QPointF]:
-        cx, top, bottom, left, right, body_w, body_h = self._body_geometry()
+    def _wheel_y(self, rect: QRectF) -> float:
         # Tekerlek govdenin en ucunda degil, biraz icinde (gercek Sensei
         # Ten'de govde ucu ile tekerlek arasinda pay var)
-        wheel_y = top + body_h * 0.20
+        return rect.top() + rect.height() * 0.20
+
+    def _marker_positions(self) -> dict[str, QPointF]:
+        rect = self._body_rect()
+        wheel_y = self._wheel_y(rect)
+        cx = rect.center().x()
         return {
             "Button3": QPointF(cx, wheel_y),
             "Button8": QPointF(cx, wheel_y + 34),
-            "Button5": QPointF(left + 10, top + body_h * 0.52),
-            "Button4": QPointF(left + 10, top + body_h * 0.76),
-            "Button7": QPointF(right - 10, top + body_h * 0.52),
-            "Button6": QPointF(right - 10, top + body_h * 0.76),
+            "Button5": QPointF(rect.left() + 10, rect.top() + rect.height() * 0.52),
+            "Button4": QPointF(rect.left() + 10, rect.top() + rect.height() * 0.76),
+            "Button7": QPointF(rect.right() - 10, rect.top() + rect.height() * 0.52),
+            "Button6": QPointF(rect.right() - 10, rect.top() + rect.height() * 0.76),
         }
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        cx, top, bottom, left, right, body_w, body_h = self._body_geometry()
+        rect = self._body_rect()
+        cx, top, bottom = rect.center().x(), rect.top(), rect.bottom()
+        left, right, body_w = rect.left(), rect.right(), rect.width()
+        body_h = rect.height()
 
         # Sensei Ten: simetrik (ambidextrous) yumurta govde, on tarafta
         # duz-ish bir kavis (sivri uc degil), arkada daha dolgun.
@@ -140,7 +133,7 @@ class ButtonDiagram(QWidget):
         painter.setBrush(gradient)
         painter.drawPath(body)
 
-        wheel_y = top + body_h * 0.20
+        wheel_y = self._wheel_y(rect)
         painter.setPen(QPen(QColor(50, 52, 58), 1.5))
         painter.drawLine(int(cx), int(top + 5), int(cx), int(wheel_y - 17))
 
@@ -151,20 +144,8 @@ class ButtonDiagram(QWidget):
 
         positions = self._marker_positions()
         badge_d = 24
-        font = QFont()
-        font.setBold(True)
-        font.setPointSize(10)
-        painter.setFont(font)
-
+        badge_border = QPen(QColor(20, 20, 24), 1.5)
         for i, name in enumerate(BUTTON_ORDER, start=1):
-            point = positions[name]
-            painter.setPen(QPen(QColor(20, 20, 24), 1.5))
-            painter.setBrush(_BADGE_COLOR)
-            painter.drawEllipse(point, badge_d / 2, badge_d / 2)
-            painter.setPen(Qt.GlobalColor.white)
-            painter.drawText(
-                QRectF(point.x() - badge_d / 2, point.y() - badge_d / 2,
-                       badge_d, badge_d),
-                Qt.AlignmentFlag.AlignCenter, str(i))
+            _draw_badge(painter, positions[name], badge_d, i, border=badge_border)
 
         painter.end()

@@ -6,16 +6,6 @@ from PySide6.QtWidgets import (
 from .. import backend
 from .button_diagram import ButtonDiagram, make_row_label_pixmap
 
-DEFAULT_MAPPING = {
-    "Button1": "button1", "Button2": "button2", "Button3": "button3",
-    "Button4": "button4", "Button5": "button5", "Button6": "PageDown",
-    "Button7": "PageUp", "Button8": "dpi",
-}
-
-# Sol/sağ tık - yanlışlıkla değiştirilirse tıklama çalışmaz hale gelebilir.
-# Arayüzde hiç gösterilmiyor, sadece dahili olarak sabit değerde tutuluyor.
-LOCKED_BUTTONS = {"Button1", "Button2"}
-
 
 class ButtonsTab(QWidget):
     changed = Signal()
@@ -23,6 +13,11 @@ class ButtonsTab(QWidget):
     def __init__(self, profile: backend.MouseProfile):
         super().__init__()
         self.profile = profile
+
+        for btn, default in backend.DEFAULT_BUTTON_MAPPING.items():
+            profile.buttons.setdefault(btn, default)
+        for locked in backend.LOCKED_BUTTONS:
+            profile.buttons[locked] = backend.DEFAULT_BUTTON_MAPPING[locked]
 
         root = QHBoxLayout(self)
 
@@ -36,10 +31,9 @@ class ButtonsTab(QWidget):
             combo = QComboBox()
             combo.setEditable(True)
             combo.addItems(choices)
-            current = profile.buttons.get(btn, DEFAULT_MAPPING.get(btn, "default"))
-            if current in choices:
-                combo.setCurrentText(current)
-            combo.currentTextChanged.connect(self._make_handler(btn))
+            combo.setCurrentText(profile.buttons[btn])
+            combo.currentTextChanged.connect(
+                lambda text, b=btn: self._on_button_changed(b, text))
 
             row_label = QLabel()
             row_label.setPixmap(
@@ -58,13 +52,6 @@ class ButtonsTab(QWidget):
         right.addStretch()
         root.addLayout(right, stretch=0)
 
-        if not profile.buttons:
-            profile.buttons = dict(DEFAULT_MAPPING)
-        for locked in LOCKED_BUTTONS:
-            profile.buttons[locked] = DEFAULT_MAPPING[locked]
-
-    def _make_handler(self, btn: str):
-        def handler(text: str):
-            self.profile.buttons[btn] = text
-            self.changed.emit()
-        return handler
+    def _on_button_changed(self, btn: str, text: str):
+        self.profile.buttons[btn] = text
+        self.changed.emit()
