@@ -1,0 +1,14 @@
+# Sensei Control — proje kılavuzu (Claude Code, Codex, Antigravity ortak)
+
+Kuzey'in kişisel açık kaynak projesi. SteelSeries Sensei Ten faresi için Linux'ta GUI
+kontrol uygulaması (`rivalcfg` üzerine, PySide6). Detay/özellik listesi/kurulum:
+[README.md](README.md) — güncel ve yeterli, tekrar edilmiyor.
+
+Repo: `github.com/ktarxhun/sensei-control` (Kuzey'in kendi hesabı).
+
+---
+
+## Girişler ([Araç, TARİH] imzalı)
+
+- **[Claude Code, 4 Eylül 2026]** Bu dosya oluşturuldu (periyodik audit'in bulduğu boşluk,
+  RULES.md madde 5). Detay: `~/Projeler/memorysync.md`.
