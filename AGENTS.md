@@ -12,3 +12,4 @@ Repo: `github.com/ktarxhun/sensei-control` (Kuzey'in kendi hesabı).
 
 - **[Claude Code, 4 Eylül 2026]** Bu dosya oluşturuldu (periyodik audit'in bulduğu boşluk,
   RULES.md madde 5). Detay: `~/Projeler/memorysync.md`.
+- **[Antigravity, 4 Eylül 2026]** Git commit e-posta yapılandırması GitHub noreply olarak doğrulandı.
